@@ -1,0 +1,227 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>simulation</title><meta name="generator" content="MATLAB 9.8"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2025-09-08"><meta name="DC.source" content="simulation.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; }
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+span.typesection { color:#A0522D }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#1">Quiet-Zone ANC with Loudspeaker Array (free-field model)</a></li><li><a href="#2">-------------------- Parameters ---------------------------</a></li><li><a href="#3">-------------------- Helper inline functions ---------------------------</a></li><li><a href="#4">-------------------- Geometry ---------------------------</a></li><li><a href="#5">-------------------- Solve and plot per frequency ----------------------</a></li><li><a href="#6">-------------------- Heatmap over angle &amp; frequency --------------------</a></li><li><a href="#7">-------------------- Optional: show array &amp; arc ------------------------</a></li></ul></div><h2 id="1">Quiet-Zone ANC with Loudspeaker Array (free-field model)</h2><p>Reproduces the scenario: one primary monopole + N secondary monopoles. I design complex weights H(&#969;) by least squares to minimize pressure on an angular arc (the "quiet zone" wedge) and plot the achieved reduction.</p><pre class="codeinput">clear; clc; close <span class="string">all</span>;
+</pre><h2 id="2">-------------------- Parameters ---------------------------</h2><pre class="codeinput">c0      = 343;                     <span class="comment">% m/s, speed of sound</span>
+freqs   = [150 250 400 600 800 1000];   <span class="comment">% Hz to evaluate</span>
+N       = 4;                       <span class="comment">% number of secondary loudspeakers</span>
+spkX    = [-0.20 -0.10 0.10 0.20]; <span class="comment">% x-locations [m]</span>
+spkY    = [ 0     0     0     0   ]; <span class="comment">% y-locations [m]</span>
+rqz     = 10;                      <span class="comment">% radius (m) where we evaluate on an arc</span>
+thMin   = deg2rad(60);             <span class="comment">% quiet-zone lower angle (rad)</span>
+thMax   = deg2rad(120);            <span class="comment">% quiet-zone upper angle (rad)</span>
+M       = 181;                     <span class="comment">% number of angular samples on the arc</span>
+lambda  = 1e-3;                    <span class="comment">% Tikhonov regularization (0 = plain LS)</span>
+
+<span class="comment">% Primary monopole location (origin by default)</span>
+srcXY   = [0; 0];
+</pre><h2 id="3">-------------------- Helper inline functions ---------------------------</h2><pre class="codeinput">kfun = @(f) 2*pi*f/c0;             <span class="comment">% wavenumber</span>
+pol2cartM = @(r,th) [r.*cos(th); r.*sin(th)];
+dist = @(P,Q) vecnorm(P - Q, 2, 1); <span class="comment">% distance between 2xM and 2x1</span>
+
+<span class="comment">% Primary field at points: b_m = e^{-j k r}/r</span>
+primaryField = @(pts, f) exp(-1j*kfun(f)*dist(pts,srcXY))./dist(pts,srcXY);
+
+<span class="comment">% Secondary matrix at points: G_{m i} = e^{-j k r_i}/r_i</span>
+secMatrix = @(pts, spk, f) <span class="keyword">...</span>
+    cell2mat(arrayfun(@(i) <span class="keyword">...</span>
+        (exp(-1j*kfun(f)*dist(pts, spk(:,i)))./dist(pts, spk(:,i))).', <span class="keyword">...</span>
+        1:size(spk,2), <span class="string">'uni'</span>, 0));
+</pre><h2 id="4">-------------------- Geometry ---------------------------</h2><pre class="codeinput">thetas = linspace(thMin, thMax, M);
+arcXY  = pol2cartM(rqz, thetas);   <span class="comment">% 2xM evaluation points</span>
+spkXY  = [spkX; spkY];             <span class="comment">% 2xN speaker positions</span>
+</pre><h2 id="5">-------------------- Solve and plot per frequency ----------------------</h2><pre class="codeinput">NR = zeros(numel(freqs), M);       <span class="comment">% dB change (controlled - uncontrolled)</span>
+
+<span class="keyword">for</span> ii = 1:numel(freqs)
+    f = freqs(ii);
+
+    <span class="comment">% Build b (primary) and G (secondary) for this frequency</span>
+    b = primaryField(arcXY, f).';                  <span class="comment">% Mx1</span>
+    G = secMatrix(arcXY, spkXY, f);                <span class="comment">% MxN</span>
+
+    <span class="comment">% Least-squares weights: H* = -(G^H G + &#955;I)^{-1} G^H b</span>
+    H = -( (G'*G + lambda*eye(N)) \ (G'*b) );      <span class="comment">% Nx1</span>
+
+    <span class="comment">% Residual pressure on the arc</span>
+    p0 = b;                <span class="comment">% uncontrolled primary</span>
+    pc = b + G*H;          <span class="comment">% controlled field</span>
+    NR(ii, :) = 20*log10(abs(pc)).' - 20*log10(abs(p0)).';
+
+    <span class="comment">% Plot angle sweep at this frequency</span>
+    figure(<span class="string">'Name'</span>, sprintf(<span class="string">'Reduction at %d Hz'</span>, f));
+    plot(rad2deg(thetas), NR(ii,:), <span class="string">'LineWidth'</span>, 1.5); grid <span class="string">on</span>;
+    xlabel(<span class="string">'\theta (deg)'</span>); ylabel(<span class="string">'Level change (dB)  [controlled - uncontrolled]'</span>);
+    title(sprintf(<span class="string">'Noise reduction on arc r = %.1f m, N=%d, f=%d Hz'</span>, rqz, N, f));
+<span class="keyword">end</span>
+</pre><img vspace="5" hspace="5" src="simulation_01.png" alt=""> <img vspace="5" hspace="5" src="simulation_02.png" alt=""> <img vspace="5" hspace="5" src="simulation_03.png" alt=""> <img vspace="5" hspace="5" src="simulation_04.png" alt=""> <img vspace="5" hspace="5" src="simulation_05.png" alt=""> <img vspace="5" hspace="5" src="simulation_06.png" alt=""> <h2 id="6">-------------------- Heatmap over angle &amp; frequency --------------------</h2><pre class="codeinput">figure(<span class="string">'Name'</span>,<span class="string">'Reduction Heatmap'</span>);
+imagesc(rad2deg([thMin thMax]), [freqs(1) freqs(end)], NR);
+axis <span class="string">xy</span>; colorbar; colormap <span class="string">turbo</span>;
+xlabel(<span class="string">'\theta (deg)'</span>); ylabel(<span class="string">'Frequency (Hz)'</span>);
+title(<span class="string">'ANC reduction across angle &amp; frequency (negative = good)'</span>);
+</pre><pre class="codeoutput error">Error using feval
+Unrecognized function or variable 'turbo'.
+
+Error in colormap (line 91)
+        arg = feval(arg);
+
+Error in simulation (line 70)
+axis xy; colorbar; colormap turbo;
+</pre><h2 id="7">-------------------- Optional: show array &amp; arc ------------------------</h2><pre class="codeinput">figure(<span class="string">'Name'</span>,<span class="string">'Geometry'</span>);
+plot(spkX, spkY, <span class="string">'ks'</span>, <span class="string">'MarkerFaceColor'</span>,<span class="string">'k'</span>); hold <span class="string">on</span>;
+plot(arcXY(1,:), arcXY(2,:), <span class="string">'r-'</span>);
+plot(srcXY(1), srcXY(2), <span class="string">'bo'</span>, <span class="string">'MarkerFaceColor'</span>,<span class="string">'b'</span>);
+axis <span class="string">equal</span>; grid <span class="string">on</span>; xlabel(<span class="string">'x (m)'</span>); ylabel(<span class="string">'y (m)'</span>);
+legend(<span class="string">'Speakers'</span>,<span class="string">'Quiet-zone arc'</span>,<span class="string">'Primary source'</span>,<span class="string">'Location'</span>,<span class="string">'best'</span>);
+title(<span class="string">'Geometry (free-field monopole model)'</span>);
+</pre><p class="footer"><br><a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2020a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+%% Quiet-Zone ANC with Loudspeaker Array (free-field model)
+% Reproduces the scenario: one primary monopole + N secondary monopoles.
+% I design complex weights H(ω) by least squares to minimize pressure
+% on an angular arc (the "quiet zone" wedge) and plot the achieved reduction.
+
+clear; clc; close all;
+
+%% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH Parameters REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+c0      = 343;                     % m/s, speed of sound
+freqs   = [150 250 400 600 800 1000];   % Hz to evaluate 
+N       = 4;                       % number of secondary loudspeakers
+spkX    = [-0.20 -0.10 0.10 0.20]; % x-locations [m] 
+spkY    = [ 0     0     0     0   ]; % y-locations [m]
+rqz     = 10;                      % radius (m) where we evaluate on an arc
+thMin   = deg2rad(60);             % quiet-zone lower angle (rad)
+thMax   = deg2rad(120);            % quiet-zone upper angle (rad)
+M       = 181;                     % number of angular samples on the arc
+lambda  = 1e-3;                    % Tikhonov regularization (0 = plain LS)
+
+% Primary monopole location (origin by default)
+srcXY   = [0; 0];
+
+%% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH Helper inline functions REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+kfun = @(f) 2*pi*f/c0;             % wavenumber
+pol2cartM = @(r,th) [r.*cos(th); r.*sin(th)];
+dist = @(P,Q) vecnorm(P - Q, 2, 1); % distance between 2xM and 2x1
+
+% Primary field at points: b_m = e^{-j k r}/r
+primaryField = @(pts, f) exp(-1j*kfun(f)*dist(pts,srcXY))./dist(pts,srcXY);
+
+% Secondary matrix at points: G_{m i} = e^{-j k r_i}/r_i
+secMatrix = @(pts, spk, f) ...
+    cell2mat(arrayfun(@(i) ...
+        (exp(-1j*kfun(f)*dist(pts, spk(:,i)))./dist(pts, spk(:,i))).', ...
+        1:size(spk,2), 'uni', 0));
+
+%% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH Geometry REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+thetas = linspace(thMin, thMax, M);
+arcXY  = pol2cartM(rqz, thetas);   % 2xM evaluation points
+spkXY  = [spkX; spkY];             % 2xN speaker positions
+
+%% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH Solve and plot per frequency REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+NR = zeros(numel(freqs), M);       % dB change (controlled - uncontrolled)
+
+for ii = 1:numel(freqs)
+    f = freqs(ii);
+
+    % Build b (primary) and G (secondary) for this frequency
+    b = primaryField(arcXY, f).';                  % Mx1
+    G = secMatrix(arcXY, spkXY, f);                % MxN
+
+    % Least-squares weights: H* = -(G^H G + λI)^{-1} G^H b
+    H = -( (G'*G + lambda*eye(N)) \ (G'*b) );      % Nx1
+
+    % Residual pressure on the arc
+    p0 = b;                % uncontrolled primary
+    pc = b + G*H;          % controlled field
+    NR(ii, :) = 20*log10(abs(pc)).' - 20*log10(abs(p0)).';
+    
+    % Plot angle sweep at this frequency
+    figure('Name', sprintf('Reduction at %d Hz', f)); 
+    plot(rad2deg(thetas), NR(ii,:), 'LineWidth', 1.5); grid on;
+    xlabel('\theta (deg)'); ylabel('Level change (dB)  [controlled - uncontrolled]');
+    title(sprintf('Noise reduction on arc r = %.1f m, N=%d, f=%d Hz', rqz, N, f));
+end
+
+%% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH Heatmap over angle & frequency REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+figure('Name','Reduction Heatmap');
+imagesc(rad2deg([thMin thMax]), [freqs(1) freqs(end)], NR);
+axis xy; colorbar; colormap turbo;
+xlabel('\theta (deg)'); ylabel('Frequency (Hz)');
+title('ANC reduction across angle & frequency (negative = good)');
+
+%% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH Optional: show array & arc REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+figure('Name','Geometry');
+plot(spkX, spkY, 'ks', 'MarkerFaceColor','k'); hold on;
+plot(arcXY(1,:), arcXY(2,:), 'r-'); 
+plot(srcXY(1), srcXY(2), 'bo', 'MarkerFaceColor','b');
+axis equal; grid on; xlabel('x (m)'); ylabel('y (m)');
+legend('Speakers','Quiet-zone arc','Primary source','Location','best');
+title('Geometry (free-field monopole model)');
+
+##### SOURCE END #####
+--></body></html>
