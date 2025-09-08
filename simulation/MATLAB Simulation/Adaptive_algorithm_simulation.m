@@ -1,176 +1,155 @@
-%% FxLMS ANC – single reference, single secondary speaker
-clear; close all; clc;
+% fxlms_demo.m
+% Usage: fxlms_demo;            % runs with defaults
+%        fxlms_demo('identify',true,'mu',1e-5,'Lw',128,'Ls',128);
 
-%% -------------------- Config --------------------
-Fs   = 16000;                 % sample rate
-T    = 20;                    % seconds
-N    = Fs*T;
+function Adaptive_algorithm_simulation(varargin)
+%% -------------------- Parse options --------------------
+p = inputParser;
+addParameter(p,'Fs',16000);
+addParameter(p,'T',20);                % seconds
+addParameter(p,'Lw',128);              % controller length
+addParameter(p,'Ls',128);              % secondary-path length (for ID & Ŝ)
+addParameter(p,'mu',1e-5);             % FxLMS step size
+addParameter(p,'leak',1e-4);           % leakage
+addParameter(p,'identify',true);       % run online S(z) ID first
+addParameter(p,'probeAmp',0.02);       % ID probe amplitude
+addParameter(p,'seed',1);              % RNG seed for reproducibility
+parse(p,varargin{:});
+opt = p.Results;
 
-Lw   = 128;                   % controller length (taps)
-Ls   = 128;                   % secondary-path length (taps)
-mu   = 1e-5;                  % FxLMS step size
-leak = 1e-4;                  % small leakage for stability (0..1e-3)
+rng(opt.seed);
 
-% Choose whether to identify S(z) (online) or assume a slightly wrong estimate
-do_identify_S = true;         % set false to test mismatch without ID
-probe_amp     = 0.02;         % amplitude of identification probe (very small)
+%% -------------------- Build plant (P, S) and signals --------------------
+Fs = opt.Fs; N = Fs*opt.T;
+% Primary path P(z): ~4 ms delay + reflections + mild LP
+delayP = round(0.004*Fs);
+P = zeros(delayP+48,1); P(delayP+1) = 0.9;
+P(delayP+(1:6)) = P(delayP+(1:6)) + [0.3 0.2 -0.15 0.1 -0.08 0.06].';
+P = conv(P, fir1(64,0.4)); P = P(:);
 
-rng(1);
-
-%% -------------------- Primary noise & reference model --------------------
-% Reference x(n): what the reference mic hears "upstream" of the quiet zone.
-% Disturbance at error mic: d(n) = (x * P)(n) + v(n), where P is primary path.
-
-% Build a realistic primary path P(z) (FIR) – a few ms of delay + coloration
-delayP = round(0.004*Fs);     % 4 ms geometric delay
-P = zeros(delayP+48,1);
-P(delayP+1) = 0.9;            % direct
-P(delayP+(1:6)) = P(delayP+(1:6)) + [0.3 0.2 -0.15 0.1 -0.08 0.06].'; % reflections
-
-% Secondary path S(z) (speaker->error mic): different delay/shape
-delayS = round(0.002*Fs);     % 2 ms
-S = zeros(delayS+64,1);
-S(delayS+1) = 0.7;
+% Secondary path S(z): ~2 ms delay + reflections + mild LP
+delayS = round(0.002*Fs);
+S = zeros(delayS+64,1); S(delayS+1)=0.7;
 S(delayS+(1:6)) = S(delayS+(1:6)) + [0.25 -0.2 0.15 -0.1 0.07 -0.05].';
+S = conv(S, fir1(64,0.4)); S = S(:);
 
-% Add some gentle lowpass coloration to both paths
-bLP = fir1(64, 0.4);
-P = conv(P,bLP);  P = P(:);
-S = conv(S,bLP);  S = S(:);
+% Reference x(n): band-limited noise (prop-like)
+x = filter(fir1(256,0.45),1,randn(N,1)); x = x./rms(x);
 
-% Reference signal x(n): broadband propeller-like noise (band-limited)
-w = randn(N,1);
-x = filter(fir1(256, 0.45),1,w);     % band-limit a bit
-x = x / rms(x);
-
-% Measurement noise at error mic (optional)
+% Disturbance at error mic: d = x * P + v
 v = 0.01*randn(N,1);
-
-% Primary disturbance (what we want to cancel at error mic)
 d = filter(P,1,x) + v;
 
-%% -------------------- Secondary-path estimate Ŝ(z) --------------------
-if ~do_identify_S
-    % Assume a small modeling error in Ŝ
-    Sh = S + 0.05*randn(size(S));    
+%% -------------------- Secondary-path estimate Ŝ --------------------
+if opt.identify
+    Sh = identifySecondary(S, Fs, opt.Ls, opt.probeAmp);
 else
-    % Online identification of S with tiny additive probe tone/noise
-    % We run a few seconds of low-level probe with controller muted.
-    idT = 3; idN = Fs*idT;
-    us  = probe_amp*randn(idN,1);         % probe to speaker
-    y_id = us;                            % what we drive (ANC off)
-    mic_id = filter(S,1,y_id) + 0.001*randn(idN,1);  % what error mic hears
-    % LMS to identify Sh: mic_id ≈ (us * Sh)
-    Ls_id = Ls; Sh = zeros(Ls_id,1);
-    us_buf = zeros(Ls_id,1);
-    muS = 5e-4;
-    for n=1:idN
-        % push new sample
-        us_buf = [us(n); us_buf(1:end-1)];
-        yS = Sh.' * us_buf;
-        eS = mic_id(n) - yS;
-        Sh = Sh + muS * eS * us_buf;     % plain LMS ID
-    end
-    % Continue with ANC run after identification
+    % mismatched estimate (to test robustness)
+    Sh = S + 0.05*randn(size(S));
+    % trim or pad to Ls
+    Sh = padOrTrim(Sh, opt.Ls);
 end
 
 %% -------------------- FxLMS control loop --------------------
-wFIR = zeros(Lw,1);           % controller W(z)
-x_buf   = zeros(Lw,1);        % raw reference delay line
-xhat_buf= zeros(Lw,1);        % filtered-x delay line (Ŝ * x)
-y_out = zeros(N,1);
-e     = zeros(N,1);
-y     = 0;
-
-% For analysis
-MSE  = zeros(N,1);
-ERLE = zeros(N,1);
-
-% (Optional) DC blocker / HPF on mic error to avoid bias
-hp = designfilt('highpassiir','FilterOrder',4,'HalfPowerFrequency',30,'SampleRate',Fs);
-
-for n=1:N
-    % Controller output y(n) = w^T x_buf
-    y = wFIR.' * x_buf;
-
-    % Total speaker drive = controller + (small probe during ID only)
-    if do_identify_S
-        u_spk = y;
-    else
-        u_spk = y;
-    end
-
-    % Error mic signal: e = d + (S * y)(n)
-    e(n) = d(n) + filter(S,1,u_spk,'zi').y;  % streaming form via 'zi' would be better
-    % Simple streaming shortcut (approximate): evaluate last sample only
-    % For clarity and correctness, compute streaming with persistent states:
-end
-
-% The above quick line needs proper streaming (state). Re-implement loop with states:
-clear e; e = zeros(N,1);
-stS = zeros(length(S)-1,1);   % state for S filtering
-for n=1:N
-    % Controller output
-    y = wFIR.' * x_buf;
-
-    % Speaker drive
-    u_spk = y;
-
-    % Secondary path to error mic (state-space FIR)
-    [yS, stS] = filter(S,1,u_spk, stS);  % contribution from the secondary
-
-    % Error signal at mic
-    en = d(n) + yS;
-    % (optional) HPF to remove DC drift:
-    % en = filter(hp, en);
-
-    e(n) = en;
-
-    % -------- FxLMS update --------
-    % Filtered-x sample x'(n) = (Ŝ * x)(n) via its own FIR state:
-    % Do streaming for Ŝ * x:
-    persistent stSh
-    if isempty(stSh), stSh = zeros(length(Sh)-1,1); end
-    [xprime, stSh] = filter(Sh,1,x(n),stSh);
-
-    % Update delay lines
-    x_buf    = [x(n);     x_buf(1:end-1)];
-    xhat_buf = [xprime;   xhat_buf(1:end-1)];
-
-    % LMS weight update with leakage
-    wFIR = (1 - leak).*wFIR + mu * en * xhat_buf;
-
-    % Metrics
-    if n > Fs
-        MSE(n)  = mean(e(n-Fs+1:n).^2);
-        ERLE(n) = 10*log10( mean(d(max(1,n-Fs+1):n).^2) / mean(e(max(1,n-Fs+1):n).^2) );
-    else
-        MSE(n)  = mean(e(1:n).^2);
-        ERLE(n) = 10*log10( mean(d(1:n).^2) / (mean(e(1:n).^2)+1e-12) );
-    end
-end
+[~, e, ERLE, MSE] = runFxLMS(x, d, S, Sh, opt.Lw, opt.mu, opt.leak);
 
 %% -------------------- Plots --------------------
 t = (0:N-1)/Fs;
 
-figure; 
-subplot(2,1,1); plot(t, d, 'k'); grid on; title('Primary disturbance d(n)'); xlabel('Time (s)');
-subplot(2,1,2); plot(t, e, 'b'); grid on; title('Residual error e(n)'); xlabel('Time (s)');
+figure('Name','Primary vs Residual');
+subplot(2,1,1); plot(t,d,'k'); grid on; title('Primary disturbance d(n)'); xlabel('Time (s)');
+subplot(2,1,2); plot(t,e,'b'); grid on; title('Residual error e(n)'); xlabel('Time (s)');
 
-figure;
-plot(t, ERLE, 'LineWidth',1.4); grid on; ylim([0 30]+[-5 10]); 
-xlabel('Time (s)'); ylabel('ERLE (dB)'); title('Echo/Noise Reduction (ERLE) vs time');
+figure('Name','ERLE');
+plot(t,ERLE,'LineWidth',1.4); grid on;
+xlabel('Time (s)'); ylabel('ERLE (dB)'); title('Echo/Noise Reduction vs time');
 
-figure; 
-plot(t, 10*log10(MSE+1e-12), 'LineWidth',1.4); grid on;
-xlabel('Time (s)'); ylabel('MSE (dB)'); title('Learning curve (mean squared error)');
+figure('Name','Learning Curve (MSE)');
+plot(t,10*log10(MSE+1e-12),'LineWidth',1.4); grid on;
+xlabel('Time (s)'); ylabel('MSE (dB)');
 
-% Spectra before/after (last 2 seconds)
-seg = N - 2*Fs + 1 : N;
-[PSD_d,f] = pwelch(d(seg), 1024, 512, 1024, Fs);
-[PSD_e,~] = pwelch(e(seg), 1024, 512, 1024, Fs);
-figure;
-plot(f, 10*log10(PSD_d+1e-18), 'k', 'LineWidth',1.2); hold on;
-plot(f, 10*log10(PSD_e+1e-18), 'b', 'LineWidth',1.2); grid on;
-xlabel('Frequency (Hz)'); ylabel('PSD (dB/Hz)'); 
-legend('Uncontrolled d','Residual e'); title('Spectral reduction (last 2 s)');
+% Spectra (last 2 s)
+seg = max(1,length(e)-2*Fs+1):length(e);
+[PSD_d,f] = pwelch(d(seg),1024,512,1024,Fs);
+[PSD_e,~] = pwelch(e(seg),1024,512,1024,Fs);
+figure('Name','Spectral Reduction (last 2 s)');
+plot(f,10*log10(PSD_d+1e-18),'k','LineWidth',1.2); hold on;
+plot(f,10*log10(PSD_e+1e-18),'b','LineWidth',1.2); grid on;
+xlabel('Hz'); ylabel('PSD (dB/Hz)'); legend('Uncontrolled d','Residual e');
+
+end % fxlms_demo
+
+%% ===== Helper: secondary-path identification via LMS =====
+function Sh = identifySecondary(S_true, Fs, Ls, probeAmp)
+    % short online ID: play low-level probe, record mic, fit Ŝ by LMS
+    idT = 3; idN = Fs*idT;
+    u  = probeAmp*randn(idN,1);
+    mic = filter(S_true,1,u) + 0.001*randn(idN,1);
+
+    Sh = zeros(Ls,1);
+    uBuf = zeros(Ls,1);
+    muS  = 5e-4;
+    for n=1:idN
+        uBuf = [u(n); uBuf(1:end-1)];
+        yS = Sh.'*uBuf;
+        eS = mic(n) - yS;
+        Sh = Sh + muS*eS*uBuf;
+    end
+end
+
+%% ===== Helper: run FxLMS with proper streaming states =====
+function [w, e, ERLE, MSE] = runFxLMS(x, d, S, Sh, Lw, mu, leak)
+    N = length(x);
+    % ensure lengths
+    Sh = padOrTrim(Sh, max(length(Sh),1));
+    S  = padOrTrim(S,  max(length(S),1));
+
+    w = zeros(Lw,1);
+    xBuf    = zeros(Lw,1);
+    xhatBuf = zeros(Lw,1);
+    e   = zeros(N,1);
+    ERLE= zeros(N,1);
+    MSE = zeros(N,1);
+
+    % FIR states for S and Sh
+    stS  = zeros(length(S)-1,1);
+    stSh = zeros(length(Sh)-1,1);
+
+    for n=1:N
+        % controller output
+        y = w.'*xBuf;
+
+        % loudspeaker -> error mic
+        [yS, stS]  = filter(S,1,y,stS);
+        en = d(n) + yS;
+        e(n) = en;
+
+        % filtered-x sample
+        [xprime, stSh] = filter(Sh,1,x(n),stSh);
+
+        % shift registers
+        xBuf    = [x(n);     xBuf(1:end-1)];
+        xhatBuf = [xprime;   xhatBuf(1:end-1)];
+
+        % FxLMS weight update
+        w = (1 - leak).*w + mu * en * xhatBuf;
+
+        % metrics
+        if n > 1024
+            MSE(n)  = mean(e(n-1023:n).^2);
+            ERLE(n) = 10*log10( mean(d(n-1023:n).^2) / max(mean(e(n-1023:n).^2),1e-12) );
+        else
+            MSE(n)  = mean(e(1:n).^2);
+            ERLE(n) = 10*log10( mean(d(1:n).^2) / max(mean(e(1:n).^2),1e-12) );
+        end
+    end
+end
+
+%% ===== Helper: pad/trim vector to a target length =====
+function v = padOrTrim(v, L)
+    if length(v) < L
+        v = [v; zeros(L-length(v),1)];
+    elseif length(v) > L
+        v = v(1:L);
+    end
+end

@@ -1,0 +1,415 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>Adaptive_algorithm_simulation</title><meta name="generator" content="MATLAB 9.8"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2025-09-08"><meta name="DC.source" content="Adaptive_algorithm_simulation.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; }
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+span.typesection { color:#A0522D }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#1">FxLMS ANC &#8211; single reference, single secondary speaker</a></li><li><a href="#2">-------------------- Config --------------------</a></li><li><a href="#3">-------------------- Primary noise &amp; reference model --------------------</a></li><li><a href="#4">-------------------- Secondary-path estimate &#348;(z) --------------------</a></li><li><a href="#5">-------------------- FxLMS control loop --------------------</a></li><li><a href="#6">-------------------- Plots --------------------</a></li></ul></div><h2 id="1">FxLMS ANC &#8211; single reference, single secondary speaker</h2><pre class="codeinput">clear; close <span class="string">all</span>; clc;
+</pre><pre class="codeoutput error">Error using dbstatus
+Error: File: D:\Work\Research Project\Drone-Speaker-System\simulation\MATLAB Simulation\Adaptive_algorithm_simulation.m Line: 132 Column: 5
+Declaring persistent variables in scripts is not supported.
+</pre><h2 id="2">-------------------- Config --------------------</h2><pre class="codeinput">Fs   = 16000;                 <span class="comment">% sample rate</span>
+T    = 20;                    <span class="comment">% seconds</span>
+N    = Fs*T;
+
+Lw   = 128;                   <span class="comment">% controller length (taps)</span>
+Ls   = 128;                   <span class="comment">% secondary-path length (taps)</span>
+mu   = 1e-5;                  <span class="comment">% FxLMS step size</span>
+leak = 1e-4;                  <span class="comment">% small leakage for stability (0..1e-3)</span>
+
+<span class="comment">% Choose whether to identify S(z) (online) or assume a slightly wrong estimate</span>
+do_identify_S = true;         <span class="comment">% set false to test mismatch without ID</span>
+probe_amp     = 0.02;         <span class="comment">% amplitude of identification probe (very small)</span>
+
+rng(1);
+</pre><h2 id="3">-------------------- Primary noise &amp; reference model --------------------</h2><p>Reference x(n): what the reference mic hears "upstream" of the quiet zone. Disturbance at error mic: d(n) = (x * P)(n) + v(n), where P is primary path.</p><pre class="codeinput"><span class="comment">% Build a realistic primary path P(z) (FIR) &#8211; a few ms of delay + coloration</span>
+delayP = round(0.004*Fs);     <span class="comment">% 4 ms geometric delay</span>
+P = zeros(delayP+48,1);
+P(delayP+1) = 0.9;            <span class="comment">% direct</span>
+P(delayP+(1:6)) = P(delayP+(1:6)) + [0.3 0.2 -0.15 0.1 -0.08 0.06].'; <span class="comment">% reflections</span>
+
+<span class="comment">% Secondary path S(z) (speaker-&gt;error mic): different delay/shape</span>
+delayS = round(0.002*Fs);     <span class="comment">% 2 ms</span>
+S = zeros(delayS+64,1);
+S(delayS+1) = 0.7;
+S(delayS+(1:6)) = S(delayS+(1:6)) + [0.25 -0.2 0.15 -0.1 0.07 -0.05].';
+
+<span class="comment">% Add some gentle lowpass coloration to both paths</span>
+bLP = fir1(64, 0.4);
+P = conv(P,bLP);  P = P(:);
+S = conv(S,bLP);  S = S(:);
+
+<span class="comment">% Reference signal x(n): broadband propeller-like noise (band-limited)</span>
+w = randn(N,1);
+x = filter(fir1(256, 0.45),1,w);     <span class="comment">% band-limit a bit</span>
+x = x / rms(x);
+
+<span class="comment">% Measurement noise at error mic (optional)</span>
+v = 0.01*randn(N,1);
+
+<span class="comment">% Primary disturbance (what we want to cancel at error mic)</span>
+d = filter(P,1,x) + v;
+</pre><h2 id="4">-------------------- Secondary-path estimate &#348;(z) --------------------</h2><pre class="codeinput"><span class="keyword">if</span> ~do_identify_S
+    <span class="comment">% Assume a small modeling error in &#348;</span>
+    Sh = S + 0.05*randn(size(S));
+<span class="keyword">else</span>
+    <span class="comment">% Online identification of S with tiny additive probe tone/noise</span>
+    <span class="comment">% We run a few seconds of low-level probe with controller muted.</span>
+    idT = 3; idN = Fs*idT;
+    us  = probe_amp*randn(idN,1);         <span class="comment">% probe to speaker</span>
+    y_id = us;                            <span class="comment">% what we drive (ANC off)</span>
+    mic_id = filter(S,1,y_id) + 0.001*randn(idN,1);  <span class="comment">% what error mic hears</span>
+    <span class="comment">% LMS to identify Sh: mic_id &#8776; (us * Sh)</span>
+    Ls_id = Ls; Sh = zeros(Ls_id,1);
+    us_buf = zeros(Ls_id,1);
+    muS = 5e-4;
+    <span class="keyword">for</span> n=1:idN
+        <span class="comment">% push new sample</span>
+        us_buf = [us(n); us_buf(1:end-1)];
+        yS = Sh.' * us_buf;
+        eS = mic_id(n) - yS;
+        Sh = Sh + muS * eS * us_buf;     <span class="comment">% plain LMS ID</span>
+    <span class="keyword">end</span>
+    <span class="comment">% Continue with ANC run after identification</span>
+<span class="keyword">end</span>
+</pre><h2 id="5">-------------------- FxLMS control loop --------------------</h2><pre class="codeinput">wFIR = zeros(Lw,1);           <span class="comment">% controller W(z)</span>
+x_buf   = zeros(Lw,1);        <span class="comment">% raw reference delay line</span>
+xhat_buf= zeros(Lw,1);        <span class="comment">% filtered-x delay line (&#348; * x)</span>
+y_out = zeros(N,1);
+e     = zeros(N,1);
+y     = 0;
+
+<span class="comment">% For analysis</span>
+MSE  = zeros(N,1);
+ERLE = zeros(N,1);
+
+<span class="comment">% (Optional) DC blocker / HPF on mic error to avoid bias</span>
+hp = designfilt(<span class="string">'highpassiir'</span>,<span class="string">'FilterOrder'</span>,4,<span class="string">'HalfPowerFrequency'</span>,30,<span class="string">'SampleRate'</span>,Fs);
+
+<span class="keyword">for</span> n=1:N
+    <span class="comment">% Controller output y(n) = w^T x_buf</span>
+    y = wFIR.' * x_buf;
+
+    <span class="comment">% Total speaker drive = controller + (small probe during ID only)</span>
+    <span class="keyword">if</span> do_identify_S
+        u_spk = y;
+    <span class="keyword">else</span>
+        u_spk = y;
+    <span class="keyword">end</span>
+
+    <span class="comment">% Error mic signal: e = d + (S * y)(n)</span>
+    e(n) = d(n) + filter(S,1,u_spk,<span class="string">'zi'</span>).y;  <span class="comment">% streaming form via 'zi' would be better</span>
+    <span class="comment">% Simple streaming shortcut (approximate): evaluate last sample only</span>
+    <span class="comment">% For clarity and correctness, compute streaming with persistent states:</span>
+<span class="keyword">end</span>
+
+<span class="comment">% The above quick line needs proper streaming (state). Re-implement loop with states:</span>
+clear <span class="string">e</span>; e = zeros(N,1);
+stS = zeros(length(S)-1,1);   <span class="comment">% state for S filtering</span>
+<span class="keyword">for</span> n=1:N
+    <span class="comment">% Controller output</span>
+    y = wFIR.' * x_buf;
+
+    <span class="comment">% Speaker drive</span>
+    u_spk = y;
+
+    <span class="comment">% Secondary path to error mic (state-space FIR)</span>
+    [yS, stS] = filter(S,1,u_spk, stS);  <span class="comment">% contribution from the secondary</span>
+
+    <span class="comment">% Error signal at mic</span>
+    en = d(n) + yS;
+    <span class="comment">% (optional) HPF to remove DC drift:</span>
+    <span class="comment">% en = filter(hp, en);</span>
+
+    e(n) = en;
+
+    <span class="comment">% -------- FxLMS update --------</span>
+    <span class="comment">% Filtered-x sample x'(n) = (&#348; * x)(n) via its own FIR state:</span>
+    <span class="comment">% Do streaming for &#348; * x:</span>
+    <span class="keyword">persistent</span> stSh
+    <span class="keyword">if</span> isempty(stSh), stSh = zeros(length(Sh)-1,1); <span class="keyword">end</span>
+    [xprime, stSh] = filter(Sh,1,x(n),stSh);
+
+    <span class="comment">% Update delay lines</span>
+    x_buf    = [x(n);     x_buf(1:end-1)];
+    xhat_buf = [xprime;   xhat_buf(1:end-1)];
+
+    <span class="comment">% LMS weight update with leakage</span>
+    wFIR = (1 - leak).*wFIR + mu * en * xhat_buf;
+
+    <span class="comment">% Metrics</span>
+    <span class="keyword">if</span> n &gt; Fs
+        MSE(n)  = mean(e(n-Fs+1:n).^2);
+        ERLE(n) = 10*log10( mean(d(max(1,n-Fs+1):n).^2) / mean(e(max(1,n-Fs+1):n).^2) );
+    <span class="keyword">else</span>
+        MSE(n)  = mean(e(1:n).^2);
+        ERLE(n) = 10*log10( mean(d(1:n).^2) / (mean(e(1:n).^2)+1e-12) );
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+</pre><h2 id="6">-------------------- Plots --------------------</h2><pre class="codeinput">t = (0:N-1)/Fs;
+
+figure;
+subplot(2,1,1); plot(t, d, <span class="string">'k'</span>); grid <span class="string">on</span>; title(<span class="string">'Primary disturbance d(n)'</span>); xlabel(<span class="string">'Time (s)'</span>);
+subplot(2,1,2); plot(t, e, <span class="string">'b'</span>); grid <span class="string">on</span>; title(<span class="string">'Residual error e(n)'</span>); xlabel(<span class="string">'Time (s)'</span>);
+
+figure;
+plot(t, ERLE, <span class="string">'LineWidth'</span>,1.4); grid <span class="string">on</span>; ylim([0 30]+[-5 10]);
+xlabel(<span class="string">'Time (s)'</span>); ylabel(<span class="string">'ERLE (dB)'</span>); title(<span class="string">'Echo/Noise Reduction (ERLE) vs time'</span>);
+
+figure;
+plot(t, 10*log10(MSE+1e-12), <span class="string">'LineWidth'</span>,1.4); grid <span class="string">on</span>;
+xlabel(<span class="string">'Time (s)'</span>); ylabel(<span class="string">'MSE (dB)'</span>); title(<span class="string">'Learning curve (mean squared error)'</span>);
+
+<span class="comment">% Spectra before/after (last 2 seconds)</span>
+seg = N - 2*Fs + 1 : N;
+[PSD_d,f] = pwelch(d(seg), 1024, 512, 1024, Fs);
+[PSD_e,~] = pwelch(e(seg), 1024, 512, 1024, Fs);
+figure;
+plot(f, 10*log10(PSD_d+1e-18), <span class="string">'k'</span>, <span class="string">'LineWidth'</span>,1.2); hold <span class="string">on</span>;
+plot(f, 10*log10(PSD_e+1e-18), <span class="string">'b'</span>, <span class="string">'LineWidth'</span>,1.2); grid <span class="string">on</span>;
+xlabel(<span class="string">'Frequency (Hz)'</span>); ylabel(<span class="string">'PSD (dB/Hz)'</span>);
+legend(<span class="string">'Uncontrolled d'</span>,<span class="string">'Residual e'</span>); title(<span class="string">'Spectral reduction (last 2 s)'</span>);
+</pre><p class="footer"><br><a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2020a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+%% FxLMS ANC – single reference, single secondary speaker
+clear; close all; clc;
+
+%% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH Config REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+Fs   = 16000;                 % sample rate
+T    = 20;                    % seconds
+N    = Fs*T;
+
+Lw   = 128;                   % controller length (taps)
+Ls   = 128;                   % secondary-path length (taps)
+mu   = 1e-5;                  % FxLMS step size
+leak = 1e-4;                  % small leakage for stability (0..1e-3)
+
+% Choose whether to identify S(z) (online) or assume a slightly wrong estimate
+do_identify_S = true;         % set false to test mismatch without ID
+probe_amp     = 0.02;         % amplitude of identification probe (very small)
+
+rng(1);
+
+%% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH Primary noise & reference model REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+% Reference x(n): what the reference mic hears "upstream" of the quiet zone.
+% Disturbance at error mic: d(n) = (x * P)(n) + v(n), where P is primary path.
+
+% Build a realistic primary path P(z) (FIR) – a few ms of delay + coloration
+delayP = round(0.004*Fs);     % 4 ms geometric delay
+P = zeros(delayP+48,1);
+P(delayP+1) = 0.9;            % direct
+P(delayP+(1:6)) = P(delayP+(1:6)) + [0.3 0.2 -0.15 0.1 -0.08 0.06].'; % reflections
+
+% Secondary path S(z) (speaker->error mic): different delay/shape
+delayS = round(0.002*Fs);     % 2 ms
+S = zeros(delayS+64,1);
+S(delayS+1) = 0.7;
+S(delayS+(1:6)) = S(delayS+(1:6)) + [0.25 -0.2 0.15 -0.1 0.07 -0.05].';
+
+% Add some gentle lowpass coloration to both paths
+bLP = fir1(64, 0.4);
+P = conv(P,bLP);  P = P(:);
+S = conv(S,bLP);  S = S(:);
+
+% Reference signal x(n): broadband propeller-like noise (band-limited)
+w = randn(N,1);
+x = filter(fir1(256, 0.45),1,w);     % band-limit a bit
+x = x / rms(x);
+
+% Measurement noise at error mic (optional)
+v = 0.01*randn(N,1);
+
+% Primary disturbance (what we want to cancel at error mic)
+d = filter(P,1,x) + v;
+
+%% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH Secondary-path estimate Ŝ(z) REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+if ~do_identify_S
+    % Assume a small modeling error in Ŝ
+    Sh = S + 0.05*randn(size(S));    
+else
+    % Online identification of S with tiny additive probe tone/noise
+    % We run a few seconds of low-level probe with controller muted.
+    idT = 3; idN = Fs*idT;
+    us  = probe_amp*randn(idN,1);         % probe to speaker
+    y_id = us;                            % what we drive (ANC off)
+    mic_id = filter(S,1,y_id) + 0.001*randn(idN,1);  % what error mic hears
+    % LMS to identify Sh: mic_id ≈ (us * Sh)
+    Ls_id = Ls; Sh = zeros(Ls_id,1);
+    us_buf = zeros(Ls_id,1);
+    muS = 5e-4;
+    for n=1:idN
+        % push new sample
+        us_buf = [us(n); us_buf(1:end-1)];
+        yS = Sh.' * us_buf;
+        eS = mic_id(n) - yS;
+        Sh = Sh + muS * eS * us_buf;     % plain LMS ID
+    end
+    % Continue with ANC run after identification
+end
+
+%% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH FxLMS control loop REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+wFIR = zeros(Lw,1);           % controller W(z)
+x_buf   = zeros(Lw,1);        % raw reference delay line
+xhat_buf= zeros(Lw,1);        % filtered-x delay line (Ŝ * x)
+y_out = zeros(N,1);
+e     = zeros(N,1);
+y     = 0;
+
+% For analysis
+MSE  = zeros(N,1);
+ERLE = zeros(N,1);
+
+% (Optional) DC blocker / HPF on mic error to avoid bias
+hp = designfilt('highpassiir','FilterOrder',4,'HalfPowerFrequency',30,'SampleRate',Fs);
+
+for n=1:N
+    % Controller output y(n) = w^T x_buf
+    y = wFIR.' * x_buf;
+
+    % Total speaker drive = controller + (small probe during ID only)
+    if do_identify_S
+        u_spk = y;
+    else
+        u_spk = y;
+    end
+
+    % Error mic signal: e = d + (S * y)(n)
+    e(n) = d(n) + filter(S,1,u_spk,'zi').y;  % streaming form via 'zi' would be better
+    % Simple streaming shortcut (approximate): evaluate last sample only
+    % For clarity and correctness, compute streaming with persistent states:
+end
+
+% The above quick line needs proper streaming (state). Re-implement loop with states:
+clear e; e = zeros(N,1);
+stS = zeros(length(S)-1,1);   % state for S filtering
+for n=1:N
+    % Controller output
+    y = wFIR.' * x_buf;
+
+    % Speaker drive
+    u_spk = y;
+
+    % Secondary path to error mic (state-space FIR)
+    [yS, stS] = filter(S,1,u_spk, stS);  % contribution from the secondary
+
+    % Error signal at mic
+    en = d(n) + yS;
+    % (optional) HPF to remove DC drift:
+    % en = filter(hp, en);
+
+    e(n) = en;
+
+    % REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH FxLMS update REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+    % Filtered-x sample x'(n) = (Ŝ * x)(n) via its own FIR state:
+    % Do streaming for Ŝ * x:
+    persistent stSh
+    if isempty(stSh), stSh = zeros(length(Sh)-1,1); end
+    [xprime, stSh] = filter(Sh,1,x(n),stSh);
+
+    % Update delay lines
+    x_buf    = [x(n);     x_buf(1:end-1)];
+    xhat_buf = [xprime;   xhat_buf(1:end-1)];
+
+    % LMS weight update with leakage
+    wFIR = (1 - leak).*wFIR + mu * en * xhat_buf;
+
+    % Metrics
+    if n > Fs
+        MSE(n)  = mean(e(n-Fs+1:n).^2);
+        ERLE(n) = 10*log10( mean(d(max(1,n-Fs+1):n).^2) / mean(e(max(1,n-Fs+1):n).^2) );
+    else
+        MSE(n)  = mean(e(1:n).^2);
+        ERLE(n) = 10*log10( mean(d(1:n).^2) / (mean(e(1:n).^2)+1e-12) );
+    end
+end
+
+%% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH Plots REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+t = (0:N-1)/Fs;
+
+figure; 
+subplot(2,1,1); plot(t, d, 'k'); grid on; title('Primary disturbance d(n)'); xlabel('Time (s)');
+subplot(2,1,2); plot(t, e, 'b'); grid on; title('Residual error e(n)'); xlabel('Time (s)');
+
+figure;
+plot(t, ERLE, 'LineWidth',1.4); grid on; ylim([0 30]+[-5 10]); 
+xlabel('Time (s)'); ylabel('ERLE (dB)'); title('Echo/Noise Reduction (ERLE) vs time');
+
+figure; 
+plot(t, 10*log10(MSE+1e-12), 'LineWidth',1.4); grid on;
+xlabel('Time (s)'); ylabel('MSE (dB)'); title('Learning curve (mean squared error)');
+
+% Spectra before/after (last 2 seconds)
+seg = N - 2*Fs + 1 : N;
+[PSD_d,f] = pwelch(d(seg), 1024, 512, 1024, Fs);
+[PSD_e,~] = pwelch(e(seg), 1024, 512, 1024, Fs);
+figure;
+plot(f, 10*log10(PSD_d+1e-18), 'k', 'LineWidth',1.2); hold on;
+plot(f, 10*log10(PSD_e+1e-18), 'b', 'LineWidth',1.2); grid on;
+xlabel('Frequency (Hz)'); ylabel('PSD (dB/Hz)'); 
+legend('Uncontrolled d','Residual e'); title('Spectral reduction (last 2 s)');
+
+##### SOURCE END #####
+--></body></html>
