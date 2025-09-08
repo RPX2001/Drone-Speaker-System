@@ -1,0 +1,5 @@
+https://ieeexplore.ieee.org/document/11007904 - Silent Drones: A Deep Learning Approach to Suppress Drone Propeller Noise
+Spherical Sector Harmonics Based Directional Drone Noise Reduction - https://ieeexplore.ieee.org/document/9914790
+
+
+
