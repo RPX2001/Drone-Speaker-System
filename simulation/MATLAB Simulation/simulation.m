@@ -55,7 +55,7 @@ for ii = 1:numel(freqs)
     % Residual pressure on the arc
     p0 = b;                % uncontrolled primary
     pc = b + G*H;          % controlled field
-    NR(ii, :) = 20*log10(abs(pc)).' - 20*log10(abs(p0)).';
+    NR(ii, :) = 20*log10(abs(pc)).' - 20*log10(abs(p0)).'; %calculate noise reduction controlled fied - uncontrolled primary
     
     % Plot angle sweep at this frequency
     figure('Name', sprintf('Reduction at %d Hz', f)); 
