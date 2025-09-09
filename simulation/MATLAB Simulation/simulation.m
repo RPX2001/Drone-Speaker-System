@@ -67,7 +67,8 @@ end
 %% -------------------- Heatmap over angle & frequency --------------------
 figure('Name','Reduction Heatmap');
 imagesc(rad2deg([thMin thMax]), [freqs(1) freqs(end)], NR);
-axis xy; colorbar; colormap turbo;
+axis xy; colorbar; colormap (flipud(turbo));
+caxis([-100 0])
 xlabel('\theta (deg)'); ylabel('Frequency (Hz)');
 title('ANC reduction across angle & frequency (negative = good)');
 
