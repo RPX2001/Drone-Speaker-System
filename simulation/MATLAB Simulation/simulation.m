@@ -13,7 +13,7 @@ spkX    = [-0.20 -0.10 0.10 0.20]; % x-locations [m]
 spkY    = [ 0     0     0     0   ]; % y-locations [m]
 rqz     = 10;                      % radius (m) where we evaluate on an arc
 thMin   = deg2rad(60);             % quiet-zone lower angle (rad)
-thMax   = deg2rad(120);            % quiet-zone upper angle (rad)
+thMax   = deg2rad(10);            % quiet-zone upper angle (rad)
 M       = 181;                     % number of angular samples on the arc
 lambda  = 1e-3;                    % Tikhonov regularization (0 = plain LS)
 
@@ -59,6 +59,7 @@ for ii = 1:numel(freqs)
     
     % Plot angle sweep at this frequency
     figure('Name', sprintf('Reduction at %d Hz', f)); 
+    %plot(rad2deg(linspace(deg2rad(0), deg2rad(360), M)), NR(ii,:), 'LineWidth', 1.5); grid on;
     plot(rad2deg(thetas), NR(ii,:), 'LineWidth', 1.5); grid on;
     xlabel('\theta (deg)'); ylabel('Level change (dB)  [controlled - uncontrolled]');
     title(sprintf('Noise reduction on arc r = %.1f m, N=%d, f=%d Hz', rqz, N, f));
@@ -67,7 +68,7 @@ end
 %% -------------------- Heatmap over angle & frequency --------------------
 figure('Name','Reduction Heatmap');
 imagesc(rad2deg([thMin thMax]), [freqs(1) freqs(end)], NR);
-axis xy; colorbar; colormap (flipud(turbo));
+axis xy; colorbar; colormap (turbo);
 caxis([-100 0])
 xlabel('\theta (deg)'); ylabel('Frequency (Hz)');
 title('ANC reduction across angle & frequency (negative = good)');
@@ -80,3 +81,6 @@ plot(srcXY(1), srcXY(2), 'bo', 'MarkerFaceColor','b');
 axis equal; grid on; xlabel('x (m)'); ylabel('y (m)');
 legend('Speakers','Quiet-zone arc','Primary source','Location','best');
 title('Geometry (free-field monopole model)');
+
+
+
