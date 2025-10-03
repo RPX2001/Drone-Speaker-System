@@ -1,0 +1,64 @@
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# PlatformIO files
+.pio/
+.pioenvs/
+.piolibdeps/
+lib_deps/
+
+# Build artifacts
+*.bin
+*.elf
+*.hex
+*.map
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.old
+
+# Personal/Local files
+personal/
+local/
+private/
+
+# Large binary files
+*.pdf
+*.docx
+*.xlsx
+
+# Simulation files (if you don't want them in git)
+simulation/
+Protius/
+
+# Libraries folder (usually contains downloaded libraries)
+Libraries/
+
+# Specific files you don't want to commit
+Budget.docx
+Budget_A3.pdf
+Feasibility\ Report.docx
+miljkovic2018.pdf
+STM32F103.pdf
+timeline.pdf
+timeline.xlsx
+
+# But ALLOW the ANC project files
+!ANC_System_Two_Speakers/
+!ANC_System_Two_Speakers/**/*
