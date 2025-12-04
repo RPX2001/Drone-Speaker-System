@@ -226,8 +226,8 @@ float readAnalogMicrophone() {
   uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
   
   // Convert to normalized float [-1.0, 1.0]
-  // Assuming microphone output is centered around 1.65V (half of 3.3V)
-  float normalized = ((float)voltage - 1650.0f) / 1650.0f;
+  // Assuming microphone output is centered around 2.5V (half of 5V)
+  float normalized = ((float)voltage - 2500.0f) / 2500.0f;
   
   // Apply some gain if needed (microphone might have low output)
   normalized *= 2.0f;  // Adjust this gain factor based on your microphone
