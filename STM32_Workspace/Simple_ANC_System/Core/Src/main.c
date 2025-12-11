@@ -34,7 +34,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define adc_buff_size 64
+#define adc_buff_size 2048
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -66,18 +66,29 @@ static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN 0 */
 
 uint16_t ADC_Buff[adc_buff_size];
-char msg[64];
-volatile uint8_t adc_done = 0;
-uint8_t count = 0;
+
+volatile uint8_t adc_half_ready = 0;
+volatile uint8_t adc_full_ready = 0;
 
 /* USER CODE BEGIN 4 */
+
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
+{
+    if (hadc->Instance == ADC1)
+    {
+        adc_half_ready = 1;
+    }
+}
+
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
     if (hadc->Instance == ADC1)
     {
-        adc_done = 1;   // signal main loop that buffer is filled
+        adc_full_ready = 1;
     }
 }
+
+
 /* USER CODE END 4 */
 
 
@@ -129,31 +140,39 @@ int main(void)
   {
     /* USER CODE END WHILE */
 
-	  if (adc_done)
+	  // Half buffer ready
+	  if (adc_half_ready)
 	  {
-		  adc_done = 0; // clear flag
+		  adc_half_ready = 0;
 
-		  // 3. Print a snapshot over USB CDC
-		  CDC_Transmit_FS((uint8_t*)"START\r\n", 7);
-		  HAL_Delay(5);
+		  // Cast to bytes and send ADC_BUF_LEN/2 samples
+		  uint8_t *ptr = (uint8_t*)&ADC_Buff[0];
+		  uint16_t len_bytes = (adc_buff_size / 2) * sizeof(uint16_t); //devide by 2 bcz use 2 bytes in one sample
 
-		  for (int i = 0; i < adc_buff_size; i += 10)
+		  // Wait until USB CDC is ready
+		  if (CDC_Transmit_FS(ptr, len_bytes) == USBD_OK)
 		  {
-			  snprintf(msg, sizeof(msg), "ADC_Val=%u\r\n", ADC_Buff[i]);
-
-			  // keep trying if USB is busy
-			  while (CDC_Transmit_FS((uint8_t*)msg, strlen(msg)) == USBD_BUSY) {
-				  // small delay so interrupts run
-				  HAL_Delay(1);
-			  }
+			  // sent successfully
 		  }
-
-		  CDC_Transmit_FS((uint8_t*)"END\r\n", 5);
-
-		  // 4. Wait a bit, then start the next DMA snapshot
-		  HAL_Delay(500);
-		  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADC_Buff, adc_buff_size);
+		  // else: you can retry or drop
 	  }
+
+	  // Full buffer ready
+	  if (adc_full_ready)
+	  {
+		  adc_full_ready = 0;
+
+		  uint8_t *ptr = (uint8_t*)&ADC_Buff[adc_buff_size / 2];
+		  uint16_t len_bytes = (adc_buff_size / 2) * sizeof(uint16_t);
+
+		  if (CDC_Transmit_FS(ptr, len_bytes) == USBD_OK)
+		  {
+			  // sent successfully
+		  }
+	  }
+
+	  // add a small delay if needed
+//	   HAL_Delay(1);
 
     /* USER CODE BEGIN 3 */
   }
@@ -179,21 +198,26 @@ void SystemClock_Config(void)
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
 
-  /** Macro to configure the PLL clock source
-  */
-  __HAL_RCC_PLL_PLLSOURCE_CONFIG(RCC_PLLSOURCE_HSI);
-
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_CSI
-                              |RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_CSI|RCC_OSCILLATORTYPE_HSI
+                              |RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.CSIState = RCC_CSI_ON;
   RCC_OscInitStruct.CSICalibrationValue = RCC_CSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 5;
+  RCC_OscInitStruct.PLL.PLLN = 48;
+  RCC_OscInitStruct.PLL.PLLP = 2;
+  RCC_OscInitStruct.PLL.PLLQ = 5;
+  RCC_OscInitStruct.PLL.PLLR = 2;
+  RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_2;
+  RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
+  RCC_OscInitStruct.PLL.PLLFRACN = 0;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -240,17 +264,17 @@ static void MX_ADC1_Init(void)
   /** Common config
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV2;
   hadc1.Init.Resolution = ADC_RESOLUTION_16B;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_ONESHOT;
+  hadc1.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_CIRCULAR;
   hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
   hadc1.Init.LeftBitShift = ADC_LEFTBITSHIFT_NONE;
   hadc1.Init.OversamplingMode = DISABLE;
