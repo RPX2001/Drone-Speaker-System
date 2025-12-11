@@ -1,7 +1,7 @@
 #MicroXplorer Configuration settings - do not modify
 ADC1.Channel-0\#ChannelRegularConversion=ADC_CHANNEL_3
 ADC1.ContinuousConvMode=ENABLE
-ADC1.ConversionDataManagement=ADC_CONVERSIONDATA_DMA_CIRCULAR
+ADC1.ConversionDataManagement=ADC_CONVERSIONDATA_DMA_ONESHOT
 ADC1.IPParameters=Rank-0\#ChannelRegularConversion,master,Channel-0\#ChannelRegularConversion,SamplingTime-0\#ChannelRegularConversion,OffsetNumber-0\#ChannelRegularConversion,OffsetSignedSaturation-0\#ChannelRegularConversion,NbrOfConversionFlag,ContinuousConvMode,ConversionDataManagement
 ADC1.NbrOfConversionFlag=1
 ADC1.OffsetNumber-0\#ChannelRegularConversion=ADC_OFFSET_NONE
@@ -18,7 +18,7 @@ Dma.ADC1.0.FIFOMode=DMA_FIFOMODE_DISABLE
 Dma.ADC1.0.Instance=DMA1_Stream0
 Dma.ADC1.0.MemDataAlignment=DMA_MDATAALIGN_HALFWORD
 Dma.ADC1.0.MemInc=DMA_MINC_ENABLE
-Dma.ADC1.0.Mode=DMA_CIRCULAR
+Dma.ADC1.0.Mode=DMA_NORMAL
 Dma.ADC1.0.PeriphDataAlignment=DMA_PDATAALIGN_HALFWORD
 Dma.ADC1.0.PeriphInc=DMA_PINC_DISABLE
 Dma.ADC1.0.Polarity=HAL_DMAMUX_REQ_GEN_RISING

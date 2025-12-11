@@ -24,7 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
 #include <stdio.h>
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,8 +66,20 @@ static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN 0 */
 
 uint16_t ADC_Buff[adc_buff_size];
-
 char msg[64];
+volatile uint8_t adc_done = 0;
+uint8_t count = 0;
+
+/* USER CODE BEGIN 4 */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+    if (hadc->Instance == ADC1)
+    {
+        adc_done = 1;   // signal main loop that buffer is filled
+    }
+}
+/* USER CODE END 4 */
+
 
 /* USER CODE END 0 */
 
@@ -116,9 +128,32 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  snprintf(msg, sizeof(msg), "ADC0=%u\r\n", ADC_Buff[0]);
 
-	  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+	  if (adc_done)
+	  {
+		  adc_done = 0; // clear flag
+
+		  // 3. Print a snapshot over USB CDC
+		  CDC_Transmit_FS((uint8_t*)"START\r\n", 7);
+		  HAL_Delay(5);
+
+		  for (int i = 0; i < adc_buff_size; i += 10)
+		  {
+			  snprintf(msg, sizeof(msg), "ADC_Val=%u\r\n", ADC_Buff[i]);
+
+			  // keep trying if USB is busy
+			  while (CDC_Transmit_FS((uint8_t*)msg, strlen(msg)) == USBD_BUSY) {
+				  // small delay so interrupts run
+				  HAL_Delay(1);
+			  }
+		  }
+
+		  CDC_Transmit_FS((uint8_t*)"END\r\n", 5);
+
+		  // 4. Wait a bit, then start the next DMA snapshot
+		  HAL_Delay(500);
+		  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADC_Buff, adc_buff_size);
+	  }
 
     /* USER CODE BEGIN 3 */
   }
@@ -210,12 +245,12 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_CIRCULAR;
+  hadc1.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_ONESHOT;
   hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
   hadc1.Init.LeftBitShift = ADC_LEFTBITSHIFT_NONE;
   hadc1.Init.OversamplingMode = DISABLE;
